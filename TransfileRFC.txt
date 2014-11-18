@@ -1,0 +1,1008 @@
+ 
+
+
+
+Request For Comments: 001                             Debeaupuis Gabriel
+CFA Ingenieurs 2000                                      Foucault Jeremy
+
+
+                         THE TRANSFILE PROTOCOL
+
+Status of this Memo
+
+
+   This RFC specifies a standard file transfer protocol for the Internet
+   community, and requests discussion and suggestions for improvements.
+   Distribution of this memo is unlimited.
+
+Summary
+
+
+   TTP is a very simple protocol used to transfer files.  It is from
+   this that its name comes, The TransFile Protocol or TTP. It is based
+   on TCP or UDP, depends on number of clients per file.  This document
+   describes the protocol and its types of packets.  The document also
+   explains the reasons behind some of the design decisions.
+
+1. Purpose
+
+
+   TTP is a simple protocol to transfer files supporting TCP and UDP,
+   and therefore was named The TransFile Protocol or TTP. It is designed
+   to be small and easy to use and implement. The main purpose of TTP is
+   to allow a client to download some files from a remote server, and
+   also list directories on it. TTP has currently no provisions for user
+   authentication.
+
+
+   Two transfer modes are currently supported : As long as only one
+   client is downloading a file, TCP protocol will be used. As soon as a
+   second or more client are coming, UDP protocol with multicast will be
+   chosen.
+
+   In order to communicate all the requests and replies, the encoding
+   ASCII MUST be used at all time as long as the connection is on
+   between a client and the remote server.
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                             [Page 1]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+2. Overview of the Protocol
+
+
+   With the information packet, the client can ask to know the list of
+   the files and directories associated to the remote current directory
+   (section 5.1.2). He can also ask for change the remote current
+   directory (section 5.1.1). The client can at any time he wants, ask
+   to kill a transfer (section 5.1.5).
+
+   If the file exists and is available for transfer, the server send an
+   information packet which contains the unique id of the file. Then the
+   client can start the download by opening a new channel and asking the
+   file, the server will send the file in fixed length block of 1400
+   Bytes. The first fragment start at 1.
+
+   Each data packet contains one block of data, the total number of
+   fragment for the file, and the current fragment which is being
+   transferred.
+
+   If there is any problem during the transfer, the client can restart
+   the download by specifying the number of fragment that he wants.
+
+   If two clients want to download the same file, then the client
+   transfer must stop his TCP transfer and subscribe for an UDP
+   Multicast transfer. The information of the address which the client
+   must connect for receive the file, is given by the server in an
+   information packet when the second client just connect.
+
+3. Relation to other Protocols
+
+
+   TransFile uses UDP Multicast to assure the transfer of the same file
+   to several clients, and TCP for one single client.
+
+   Moreover, as shown in Figure 3-1, the order of the contents of a
+   packet will be: local medium header, if used, Internet header,
+   Datagram header, TTP header, followed by the remainder of the TTP
+   packet.
+
+   The TransFile header consists in 2 Bytes, one for the operand code
+   field which indicates the packet's type. The other for the format.
+   The various formats and type of packets are discussed further in the
+   section on TransFile Packets.
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                             [Page 2]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+          ---------------------------------------------------------
+         |  Local Medium  |  Internet  |  TCP / UDP  |  TransFile  |
+          ---------------------------------------------------------
+
+                      Figure 3-1: Order of Headers
+
+4. Initial Connection Protocol
+
+
+   The client must use a channel to send his requests, and for each
+   download he needs a channel to assume multiple downloads at the same
+   time.
+
+   To begin, when a client connects to the server he needs an unique ID
+   to use through each channel that we will use. So first he sends a
+   request Id packet (section 5.1.6).  The server will respond with an
+   information packet containing his unique ID (section 5.2.6).
+
+   In a first time, the client must select his directory by the Request
+   Packet with the format CD (section 5.1.1), if he's allowed to select
+   the remote current directory that he asked for, the server will send
+   an Information Packet with the format CD (section 5.2.1). If the
+   access is denied or if the directory asked doesn't exists, the server
+   will send an Error Packet (section 5.3).
+
+   To help the client for changing directory and know which file are
+   available for transfer, he can send a Request Packet with LS format
+   (section 5.1.2). The server will send an Information Packet with the
+   format LS, containing a list of files and directories well structured
+   (section 5.2.2).
+
+   Once the client has chosen his file that he wants to download he must
+   send a Request Packet with the format GET (section 5.1.3) specifying
+   the name. The server will respond an Information Packet with the
+   format GET (section 5.3.3) containing the unique ID of the file. This
+   unique ID is useful to stop the transfer with the Request Packet
+   format KILL (section 5.1.6) or to start the transfer by TCP or UDP
+   Multicast transmission with the Request Packet format GET-MULTI
+   (section 5.1.4).
+
+   Now to start a download, the client must open a new channel to the
+   server. Then he must send an Information packet with the format ID
+   (section 5.2.6) to identify himself to the server. At this moment the
+   client can send a download request with the format Download (section
+   5.1.6) specifying the start and end fragment. 
+
+   Once the server has received the information packet containing the id
+   and the download request, it will send the Data Packet containing the
+ 
+
+
+Debeaupuis Foucault                                             [Page 3]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+   different fragments of the file chosen, the current fragment number,
+   and the total number of fragments for the current file.
+
+   If a second or more client want to download a file which is already
+   transferring to another client, then the Server sent an Informative
+   Packet with the format UdpRequired (section 5.2.4) indicating the
+   address of the UDP Multicast transmission. The server will stop all
+   transfer with TCP on that file immediately and diffuse the content by
+   UDP. On their side, the clients must stop the TCP connection and send
+   a Request Packet with the format GET-MULTI specifying the file ID
+   that they got during the TCP connection. At this moment the server
+   will send the fragment i to n, then 1 to i until all client have just
+   finished the transfer.
+
+   The client can ask to the server to kill each communication channel
+   with him including the channel which are downloading files. For this
+   he must use the request exit format(Section 5.1.8)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                             [Page 4]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+5. TransFile Packets
+
+
+   TFP supports four types of packets :
+
+          opcode operation
+            0     Request (RRQ)
+            1     Information (INF)
+            2     Error (ERR)
+            3     Data (DATA)
+
+   The Transfile header of a packet contains the opcode associated with
+   that packet.
+
+
+ 5.1 Request Packets
+
+   The opcode value for request packets is 0. All the request packets
+   got a field RequestCode which contains the id of the command to send
+   to the server.
+
+                               1 Byte
+                            -------------
+                           | RequestCode |
+                            -------------
+
+   0 - Change the server's current directory
+   1 - File listing
+   2 - Get file Request
+   3 - Get Multi for downloading with UDP multicast
+   4 - Kill a task download
+   5 - Download Request
+   6 - Request ID
+   7 - Exit Request
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                             [Page 5]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+  5.1.1 CD Format
+
+   This packet is sent by the client to tell the server to change the
+   remote current directory.
+
+             1 Byte    1 Byte            string       1 Byte
+           --------------------------------------------------
+          | Opcode |  RequestCode |   DirectoryName  |   0   |
+           --------------------------------------------------
+
+                        Figure 5-1: CD Format
+
+   The value of RequestCode for "cd" is 0.
+
+   After the command code, a field is reserved to specify the name of
+   the directory that the client want to go followed by a 0 Byte to
+   determine the end of the string.
+
+
+  5.1.2 LS Format
+
+   This packet is sent by the client to ask the server to send the list
+   of the files and directories in the remote current directory.
+
+                             1 Byte     1 Byte
+                         -----------------------
+                        | Opcode |  RequestCode |
+                         -----------------------
+
+                        Figure 5-2: LS Format
+
+   The value of RequestCode for "ls" is 1.
+
+
+  5.1.3 GET Format
+
+   This packet is sent by the client to get some information about the
+   file he wants to download.
+
+           1 Byte  1 Byte          string      1 Byte
+       --------------------------------------------
+      | Opcode |  RequestCode |   FileName  |   0   |
+       --------------------------------------------
+
+                        Figure 5-3: GET Format
+
+   The value of RequestCode is 2. The FileName is the name of the file
+   that the client want to transfer, followed by 0 to determinate the
+ 
+
+
+Debeaupuis Foucault                                             [Page 6]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+   end of the string. 
+
+
+  5.1.4 GET-MULTI Format
+
+   This packet is sent by the client to start the transfer of a file by
+   a UDP Multicast transmission
+
+                     1 Byte  1 Byte       4 Bytes    
+                  ----------------------------------
+                 | Opcode |  RequestCode |   FileID |
+                  ----------------------------------
+
+                       Figure 5-4: GET-MULTI Format
+
+   The value of RequestCode is 3. The field FileID is the unique ID of
+   the file receive by the server when starting to download via the TCP
+   transmission.
+
+   This request must be used if the server has allowed the UDP Multicast
+   transmission on a file for several clients.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                             [Page 7]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+  5.1.5 KILL Format
+
+   This packet is sent by the client to stop a transfer.
+                        1 Byte    1 Byte     4 Bytes
+                    --------------------------------
+                   | Opcode |  RequestCode | FileID |
+                    --------------------------------
+
+                        Figure 5-5: KILL Format
+
+   The value of RequestCode is 4. The field FileID is the unique ID of
+   the file receive by the server after a GET.
+
+
+  5.1.6 Download Format
+
+   This packet is sent by the client to start a transfer. This packet
+   must be sent to the server in a different channel than the channel of
+   the command. And also he needs to send his ID with an information
+   packet before sending this packet. It also contains a field which
+   indicated whether this frame is the last or not.( 1 means this
+   fragment is the last, 0 otherwise).
+
+           1 Byte    1 Byte     4 Bytes     4 Bytes    4 Bytes   4Bytes
+        ----------------------------------------------------------------
+       | Opcode |  RequestCode | FileID | StartFrag | EndFrag | isLast |
+        ----------------------------------------------------------------
+
+                        Figure 5-6: DOWNLOAD Format
+
+   The value of RequestCode is 5. The field FileID is the unique ID of
+   the file receive by the server in the Information Get Format. It also
+   contains the number of the fragment to start the download, and the
+   last end fragment to download.
+
+   The start fragment value start from 1 to n. If the client wants to
+   download all the fragment he can set the start fragment to 1 and the
+   end fragment to 0. It will be interpreted by the server as the last
+   fragment. On the contrary, if the clients want only some specifical
+   fragments, he must send as many Download Requests as contiguous
+   missing fragments. For example, the client needs those fragments on
+   the file id 2258: 2-3-4-5,  15, & 25-26-27. In that case, he wants to
+   send 3 Download Requests such as below. ( fileId/start/end/isLast).
+   2258/2/5/0   -- 2258/15/15/0 -- 2258/25/27/1
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                             [Page 8]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+  5.1.7 ID Format
+
+   This packet is sent by the client to request an ID.
+
+
+                            1 Byte    1 Byte
+                         -----------------------
+                        | Opcode |  RequestCode |
+                         -----------------------
+
+                        Figure 5-6: ID Format
+
+   The value of RequestCode is 6. 
+
+
+  5.1.7 EXIT Format
+
+   This packet is sent by the client to shutdown all their connections
+   The server will not respond and shutdown all the channel bounded with
+   the client.
+
+
+                            1 Byte    1 Byte
+                         -----------------------
+                        | Opcode |  RequestCode |
+                         -----------------------
+
+                        Figure 5-7: EXIT Format
+
+   The value of RequestCode is 7. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                             [Page 9]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+ 5.2 Information Packets
+
+   This packet is sent by the remote server to confirm a request. It
+   allows 6 several codes information as described just below.
+
+                          1 Byte
+                    -----------------
+                   | InformationCode |
+                    -----------------
+
+   0 - Directory changed successfully
+   1 - File listing confirmation
+   2 - Information Get
+   3 - UDP multicast protocol must be used
+   4 - TCP Protocol must be used
+   5 - Task killed successfully
+   6 - ID Response
+
+
+  5.2.1 CD Format
+
+   This packet is sent when the server's current directory has been
+   changed successfully.
+
+                                       String   1 Byte
+                    -----------------------------------
+                   | Type | InfoCode | Message |   0   |
+                    -----------------------------------
+
+                        Figure 5-2-1: CD Format
+
+   The value of the "InfoCode" field is 0.
+
+
+  5.2.2 LS Format
+
+   This packet is sent when the server answers a client's request for
+   file listing in the current directory.
+
+                                     4 Byte	4 Byte
+                ------------------------------------------
+               | Type | InfoCode | FilesNumber | FileSize |
+                ------------------------------------------
+                  4 Bytes    String    1 Byte        
+                ------------------------------------------
+               | FileDate | FileName |   0   |    ...     |
+                ------------------------------------------
+
+ 
+
+
+Debeaupuis Foucault                                            [Page 10]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+                        Figure 5-2-2: LS Format
+
+   The value of "InfoCode" is 1. Files number represents the total
+   number of file listed by the remote server. File size represents the
+   size of the file in Ko. The File date format is defined as below :
+
+   FileDate Format :
+
+                       2 Bytes    1 Byte      1 Byte
+                    --------------------------------
+                   |   Year   |   Month   |   Day   |
+                    --------------------------------
+
+                      Figure 5-2-3: Date representation
+
+   Therefore "..." represents the succession of all the files which are
+   going to be listed by the server.
+
+
+  5.2.3 GET Format
+
+   This packet is sent to give more information about a file asked by
+   the client. when the server allows the client to download this file
+   using TCP protocol. It contains the InfoCode , a unique File ID which
+   is calculated by the server in order to easily recognized a file, the
+   total number of fragment necessary to download, and its full name.
+   The value of InfoCode in this case is 2.
+
+                               4 Bytes  4 Bytes         
+            ---------------------------------------
+           | Type | InfoCode | FileID | FragNumber | 
+            ---------------------------------------
+
+                 4 Bytes      String   1Byte               
+            ---------------------------------------
+           |     Total Fragment     |  Name   | 0  | 
+            ---------------------------------------
+
+                    Figure 5-2-4: GET Format success
+
+   In other cases, it may occurs that a client asks to download a file
+   which is currently downloading by an another client. To solve that,
+   the server will ask all the clients to stop their download, and to
+   reconnect themselves to the server using UDP with a multicast
+   address. The value of Code info in this case is 3.
+
+
+
+ 
+
+
+Debeaupuis Foucault                                            [Page 11]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+                                     4 Bytes         String
+             ----------------------------------------------------
+            | Type | InfoCode | MulticastAddress | Message |  0  |
+             ----------------------------------------------------
+
+               Figure 5-2-5: GET Format warning ( UDP required)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                            [Page 12]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+  5.2.4 GET-MULTI Format
+
+   This packet is sent when the server allows the client to download
+   this file using UDP protocol. It contains a specific Code info, a
+   unique File ID which is calculated by the server in order to easily
+   recognized a file, the total fragment number and its full name. The
+   value of Code info in this case is 2.
+
+                              4 Byte   4 Byte      String 1 Byte
+           ----------------------------------------------------
+          | Type | InfoCode | FileID | FragNumber | Name |  0  |
+           ----------------------------------------------------
+
+                    Figure 5-2-6: GET-MULTI Format success
+
+   In other cases, it may occurs that a client ends his download so that
+   only 1 client is still remaining. To solve that, the server will ask
+   this single client to stop his download, and to reconnect himself to
+   the server using TCP protocol. The value of Code info in this case is
+   4.
+
+                                  4 Bytes       String
+              --------------------------------------------------
+             | Type | InfoCode | UnicastAddress | Message |  0  |
+              --------------------------------------------------
+
+             Figure 5-2-7: GET-MULTI Format Warning ( TCP required)
+
+
+   5.2.5 KILL Format
+
+   This packet is sent by the server to confirm the request of ending a
+   download. The value of Code info is 5. It also contains the name and
+   the ID of the download killed.
+
+                                       4 Bytes String   1 Byte
+                    --------------------------------------------
+                   | Type | InfoCode | FileID | Message |   0   |
+                    --------------------------------------------
+
+                        Figure 5-2-9: Kill Format
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                            [Page 13]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+   5.2.6 ID Format
+
+   This packet is sent by the server to confirm the ID request and send
+   the ID of the client. The value of Code info is 6.
+
+   Warning when a client want to start a download, he must open a new
+   channel to the server and send his ID with this packet. He will be at
+   the moment available to send some Download Request
+
+                                       4 Bytes
+                    ----------------------------
+                   | Type | InfoCode | IDClient |
+                    ----------------------------
+
+                        Figure 5-2-10: ID Format
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                            [Page 14]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+ 5.3 Error Packets
+
+
+   This packet is sent by the remote server to report than an error
+   occurs while answering a request. It allows 4 several codes
+   information as described just below.
+
+                          1 Byte
+                    ------------------------
+                   | Error Code information |
+                    ------------------------
+
+   0 - The folder or file does not exist
+   1 - The task does not exist
+   2 - Your rights are to low to do this
+   3 - Not enough users while asking for a UDP multicast download
+   4 - Bad Request
+
+
+
+   The packet's structure is exactly the same for every error messages.
+
+                                        String    1 Byte
+                    ------------------------------------
+                   | Type | ErrorCode | Message |   0   |
+                    ------------------------------------
+
+                   Figure 5-3-1: Error message structure
+
+
+  5.3.1 CD Format
+
+   Two distinct errors can occurs while asking for a "CD" request.
+   First, the parent folder does not exist because you already are on
+   the root. In that case the error code will be 0. Otherwise, you may
+   not have the rights to access the directory, so the error code will
+   be 2.
+
+
+  5.3.2 LS Format
+
+   No error message can occur here.
+
+
+  5.3.3 GET Format
+
+   Two distinct errors can occurs while asking for a "GET FILE" request.
+   First, the file required may not exists. In that case the error code
+ 
+
+
+Debeaupuis Foucault                                            [Page 15]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+   will be 0. Otherwise, you may not have the rights to access the file,
+   so the error code will be 2.
+
+
+  5.3.4 GET-MULTI Format
+
+   You may face the same 2 errors with a "GET file" request. But you can
+   find another one which is, asking for a multicast download while you
+   are the only user. In that case the error code will be 3.
+
+
+   5.3.6 KILL Format
+
+   You may want to kill a task that does not exist. In that case the
+   error code will be 1.
+
+  5.3.7 BAD REQUEST Format
+
+   You may have sent a request which the operands code and the format
+   code do not exists, in that case you will receive a BAD REQUEST error
+   corresponding to the error code 4.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                            [Page 16]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+ 5.4 Data Packets
+
+   This packet is sent by the server to transfer a file.
+
+
+               1 Byte     1 Byte        4 Bytes    4 Bytes      
+             ------------------------------------------------
+            | Opcode |  ProtocolCode |   NbFrag |  NumFrag   | 
+             ------------------------------------------------
+              4 Bytes             4 Bytes        n Bytes 
+             ------------------------------------------------
+            |      FileID     |    Lenght   |    Data        |
+             ------------------------------------------------
+
+                        Figure 5-4: Data packet
+
+   The field ProtocolCode specify if the mode transfer is on UDP or TCP.
+
+   The field NbFrag specify the total number of fragment for a file. The
+   field NumFrag indicates the current fragment which is being
+   transferred. And the rest of the packet is the DATA of the file. The
+   Length field contains the length of the n Data.
+
+   Notice that a file is slice in n fragment of 1400 Bytes. If a packet
+   contains a Data field with less than 1400 Bytes, it means that this
+   is the last fragment. Moreover the comparison between NumFrag and
+   NbFrag indicates if others fragments remains.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+Debeaupuis Foucault                                            [Page 17]
+
+RFC 001                    TransFile Protocol                   May 2011
+
+
+References
+
+   [1]  K. Sollins, "THE TFTP PROTOCOL (REVISION 2)," RFC 1350, MIT,
+   July, 1992.
+
+
+Security Considerations
+
+   Since TTP has no authentication system, you should be careful with
+   the rights given by a TTP server to not violate the integrity of the
+   system.
+
+Author's Address
+
+   DEBEAUPUIS Gabriel
+   EMail: gdebeaup@etudiant.univ-mlv.fr
+
+
+   FOUCAULT Jeremy
+   EMail: jfouca01@etudiant.univ-mlv.fr
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Debeaupuis Foucault                                            [Page 18]

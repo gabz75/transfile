@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- WARNING: Eclipse auto-generated file.
+              Any modifications will be overwritten.
+              To include a user specific buildfile here, simply create one in the same
+              directory with the processing instruction <?eclipse.ant.import?>
+              as the first entry and export the buildfile again. -->
+<project basedir="." default="jar" name="Transfile">
+	<description>Transfile</description>
+
+	<property name="src.dir" value="src" />
+	<property name="classes.dir" value="classes" />
+	<property name="doc.dir" value="docs" />
+	<property name="main-class-client" value="fr.upemlv.transfile.client.FileClient" />
+        <property name="main-class-server" value="fr.upemlv.transfile.server.FileServer" />
+	<property name="jar-name-client" value="transfile-client" />
+        <property name="jar-name-server" value="transfile-server" />
+	<property name="jar.dir" value="." />
+	<property name="stats.file" value="server-statistics" />
+
+	<path id="Project.classpath">
+		<pathelement location="${classes.dir}"/>
+	</path>
+
+	<target name="init" description="Recopy the .class and the folder img to the classes directory">
+		<mkdir dir="${classes.dir}" />
+		<copy includeemptydirs="false" todir="${classes.dir}">
+			<fileset dir="${src.dir}">
+				<exclude name="**/*.launch" />
+				<exclude name="**/*.java" />
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="clean" description="Delete the content of the classes directory">
+		<delete dir="${classes.dir}" />
+		<delete dir="${doc.dir}" />
+		<delete file="${jar-name-server}.jar" />
+		<delete file="${jar-name-client}.jar" />
+		<delete file="${stats.file}" />
+	</target>
+
+	<target name="compile" depends="init" description="Compile sources">
+		<javac srcdir="${src.dir}" destdir="${classes.dir}">
+			<classpath refid="Project.classpath"/>
+		</javac>
+	</target>
+
+	<target name="jar-client" depends="compile" description="Create the jar of the client">
+		<jar destfile="${jar-name-client}.jar" basedir="${classes.dir}">
+			<manifest>
+				<attribute name="Main-Class" value="${main-class-client}" />
+				<attribute name="Class-Path" value="${classes.dir}" />
+			</manifest>
+		</jar>
+	</target>
+	
+	<target name="jar-server" depends="jar-client" description="Create the jar of the server">
+		<jar destfile="${jar-name-server}.jar" basedir="${classes.dir}">
+			<manifest>
+				<attribute name="Main-Class" value="${main-class-server}" />
+				<attribute name="Class-Path" value="${classes.dir}" />
+			</manifest>
+		</jar>
+	</target>
+	
+	<target name="jar" depends="jar-server" />
+
+	<target name="javadoc" description="Generate the javadoc">
+		<delete dir="${doc.dir}/doc" />
+		<mkdir dir="${doc.dir}/doc" />
+		<javadoc destdir="${doc.dir}/doc" private="yes">
+			<fileset dir="${src.dir}/" includes="**/*.java" />
+		</javadoc>
+	</target>
+</project>
